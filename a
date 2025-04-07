@@ -1,0 +1,162 @@
+// File: App.jsx
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { format, parseISO } from 'date-fns';
+
+const API_KEY = import.meta.env.VITE_GHL_API_KEY;
+const BASE_URL = 'https://rest.gohighlevel.com/v1';
+
+const headers = {
+  Authorization: `Bearer ${API_KEY}`,
+};
+
+export default function App() {
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [todaysLeads, setTodaysLeads] = useState([]);
+  const [followUps, setFollowUps] = useState([]);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [note, setNote] = useState('');
+  const [stage, setStage] = useState('');
+  const [nextTaskDate, setNextTaskDate] = useState('');
+
+  useEffect(() => {
+    fetchLeads();
+    fetchFollowUps();
+  }, [selectedDate]);
+
+  const fetchLeads = async () => {
+    const res = await axios.get(`${BASE_URL}/opportunities/`, { headers });
+    const leads = res.data.opportunities.filter((lead) => {
+      const createdAt = format(parseISO(lead.createdAt), 'yyyy-MM-dd');
+      return createdAt === selectedDate;
+    });
+    setTodaysLeads(leads);
+  };
+
+  const fetchFollowUps = async () => {
+    const res = await axios.get(`${BASE_URL}/tasks/`, { headers });
+    const tasks = res.data.tasks.filter((task) => {
+      return task.dueDate?.startsWith(selectedDate);
+    });
+    setFollowUps(tasks);
+  };
+
+  const handleSave = async () => {
+    if (!note || !stage || (!nextTaskDate && stage !== 'complete' && stage !== 'dead')) return;
+
+    await axios.post(`${BASE_URL}/notes/`, {
+      body: note,
+      contactId: selectedContact.contactId,
+    }, { headers });
+
+    await axios.put(`${BASE_URL}/opportunities/${selectedContact.id}`, {
+      stageId: stage,
+    }, { headers });
+
+    if (stage !== 'complete' && stage !== 'dead') {
+      await axios.post(`${BASE_URL}/tasks/`, {
+        dueDate: nextTaskDate,
+        contactId: selectedContact.contactId,
+        title: `Follow up with ${selectedContact.name}`,
+      }, { headers });
+    }
+
+    setSelectedContact(null);
+    setNote('');
+    setStage('');
+    setNextTaskDate('');
+    fetchLeads();
+    fetchFollowUps();
+  };
+
+  return (
+    <div className="p-4 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Task Manager</h1>
+
+      <input
+        type="date"
+        value={selectedDate}
+        onChange={(e) => setSelectedDate(e.target.value)}
+        className="mb-6 p-2 border rounded"
+      />
+
+      <section className="mb-10">
+        <h2 className="text-xl font-semibold mb-2">Today's Leads</h2>
+        <div className="space-y-2">
+          {todaysLeads.map((lead) => (
+            <div
+              key={lead.id}
+              className="p-3 border rounded cursor-pointer hover:bg-gray-100"
+              onClick={() => setSelectedContact(lead)}
+            >
+              {lead.name || 'Unnamed Lead'}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-xl font-semibold mb-2">Follow Ups</h2>
+        <div className="space-y-2">
+          {followUps.map((task) => (
+            <div
+              key={task.id}
+              className="p-3 border rounded"
+            >
+              {task.title}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {selectedContact && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+          <div className="bg-white p-6 rounded shadow-lg w-full max-w-lg">
+            <h3 className="text-lg font-semibold mb-4">Action Lead</h3>
+            <p className="mb-2 font-medium">{selectedContact.name}</p>
+
+            <textarea
+              placeholder="Add note"
+              className="w-full border p-2 rounded mb-4"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+
+            <select
+              value={stage}
+              onChange={(e) => setStage(e.target.value)}
+              className="w-full border p-2 rounded mb-4"
+            >
+              <option value="">Select Pipeline Stage</option>
+              <option value="complete">Complete</option>
+              <option value="dead">Dead</option>
+              <option value="followup">Follow Up</option>
+            </select>
+
+            {stage !== 'complete' && stage !== 'dead' && (
+              <input
+                type="datetime-local"
+                value={nextTaskDate}
+                onChange={(e) => setNextTaskDate(e.target.value)}
+                className="w-full border p-2 rounded mb-4"
+              />
+            )}
+
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded mr-2"
+              onClick={handleSave}
+            >
+              Save Action
+            </button>
+            <button
+              className="px-4 py-2 border rounded"
+              onClick={() => setSelectedContact(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
