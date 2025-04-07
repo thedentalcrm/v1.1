@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { format, parseISO } from 'date-fns';
 
-const API_KEY = import.meta.env.VITE_GHL_API_KEY;
+const API_KEY = import.meta.env.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2NhdGlvbl9pZCI6IlFuY0ZrY0FpRmx2NmJjODJVbjhuIiwidmVyc2lvbiI6MSwiaWF0IjoxNzQ0MDU0NTcxMjA0LCJzdWIiOiJPdHBZb3JhY1dQNHhaRWlCMzIwdCJ9.5EjloqFqimVZ1KGKNfnBQJa6Q8Tu9ROMRk3HQdLjdXI;
 const BASE_URL = 'https://rest.gohighlevel.com/v1';
 
 const headers = {
